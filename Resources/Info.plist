@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>ru.olya.camprompt</string>
+    <key>CFBundleExecutable</key>
+    <string>CamPrompt</string>
+    <key>CFBundleName</key>
+    <string>CamPrompt</string>
+    <key>CFBundleDisplayName</key>
+    <string>CamPrompt — Телесуфлёр</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.video</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>CamPrompt использует камеру, чтобы показывать превью и записывать ваши видео.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>CamPrompt использует микрофон, чтобы записывать звук в ваших видео.</string>
+</dict>
+</plist>

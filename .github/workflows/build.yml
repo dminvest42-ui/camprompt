@@ -1,0 +1,61 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version && xcodebuild -version
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build app + dmg
+        run: bash scripts/build_app.sh "${{ steps.ver.outputs.version }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CamPrompt-dmg
+          path: dist/*.dmg
+          if-no-files-found: error
+
+      - name: Release (on tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.dmg
+          generate_release_notes: false
+          body: |
+            ## CamPrompt ${{ steps.ver.outputs.version }}
+
+            Телесуфлёр с записью видео прямо под камерой MacBook.
+
+            ### Установка
+            1. Скачайте `CamPrompt-${{ steps.ver.outputs.version }}.dmg` ниже и откройте его.
+            2. Перетащите **CamPrompt** в папку **Applications**.
+            3. Приложение не нотарифицировано (пока нет Apple Developer сертификата), поэтому при первом запуске выполните в Терминале одну команду:
+               ```
+               xattr -dr com.apple.quarantine /Applications/CamPrompt.app
+               ```
+               После этого приложение открывается как обычно. Альтернатива: правый клик → «Открыть», затем Системные настройки → «Конфиденциальность и безопасность» → «Всё равно открыть».
+            4. При первом запуске macOS спросит доступ к камере и микрофону — разрешите.
+
+            Записи сохраняются в `~/Movies/Teleprompter/`.
