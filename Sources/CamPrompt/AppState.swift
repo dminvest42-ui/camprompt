@@ -86,14 +86,32 @@ final class AppState: ObservableObject {
     }
 
     private func startRecordingFlow() {
-        guard capture.isSessionRunning else {
-            capture.lastError = "Сначала включите камеру."
-            return
-        }
         engine.text = scripts.selectedScript?.text ?? ""
         if !panelVisible && settings.showPanelOnRecord {
             showPanel()
         }
+        if capture.isSessionRunning {
+            startCountdown()
+            return
+        }
+        // Camera is off — switch it on and wait until the session is live.
+        capture.startCamera()
+        Task { @MainActor in
+            for _ in 0..<50 where !capture.isSessionRunning {
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+            guard capture.isSessionRunning else {
+                capture.lastError = capture.lastError ?? "Камера не включилась — проверьте доступ в Системных настройках."
+                return
+            }
+            // Only proceed if the user hasn't cancelled meanwhile.
+            if self.recordingState == .idle {
+                self.startCountdown()
+            }
+        }
+    }
+
+    private func startCountdown() {
         let n = settings.countdownSeconds
         if n <= 0 {
             beginRecording()

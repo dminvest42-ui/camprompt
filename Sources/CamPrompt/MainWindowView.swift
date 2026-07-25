@@ -16,7 +16,7 @@ struct MainWindowView: View {
     var body: some View {
         NavigationSplitView {
             sidebar
-                .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 300)
+                .navigationSplitViewColumnWidth(min: 230, ideal: 250, max: 320)
         } detail: {
             detail
         }
@@ -39,6 +39,9 @@ struct MainWindowView: View {
                 ForEach(scripts.scripts) { script in
                     Label(script.title.isEmpty ? "Без названия" : script.title,
                           systemImage: "doc.text")
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .tag(script.id)
                         .contextMenu {
                             Button("Удалить", role: .destructive) { scripts.delete(script) }
@@ -55,10 +58,13 @@ struct MainWindowView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(item.date, format: .dateTime.day().month().hour().minute())
                                 .font(.caption)
+                                .lineLimit(1)
                             Text(String(format: "%.1f МБ", item.sizeMB))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
+                                .lineLimit(1)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .contextMenu {
                             Button("Открыть") { recordings.open(item) }
                             Button("Показать в Finder") { recordings.revealInFinder(item) }
@@ -203,6 +209,7 @@ struct MainWindowView: View {
                 .lineSpacing(settings.lineSpacing)
                 .multilineTextAlignment(settings.textAlignment)
                 .frame(width: geo.size.width * 0.86, alignment: settings.frameAlignment)
+                .fixedSize(horizontal: false, vertical: true)
                 .offset(y: anchorY - engine.offset)
                 .frame(maxWidth: .infinity)
         }

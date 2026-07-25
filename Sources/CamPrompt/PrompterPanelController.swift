@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+/// NSPanel that forwards mouse-wheel / trackpad scrolling to the prompter,
+/// so the script can be wound back and forth by hand.
+final class ScrollForwardingPanel: NSPanel {
+    var onScrollDelta: ((CGFloat) -> Void)?
+
+    override func scrollWheel(with event: NSEvent) {
+        let dy = event.hasPreciseScrollingDeltas
+            ? event.scrollingDeltaY
+            : event.scrollingDeltaY * 10
+        onScrollDelta?(dy)
+    }
+}
+
 /// Borderless always-on-top NSPanel that hosts the prompter text,
 /// pinned right under the MacBook camera notch (or free-floating).
 @MainActor
@@ -50,12 +63,17 @@ final class PrompterPanelController {
             ? screenFrame.maxY - height
             : screenFrame.maxY - height - menuBarHeight - 8
 
-        let panel = NSPanel(
+        let panel = ScrollForwardingPanel(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
+        let engine = state.engine
+        panel.onScrollDelta = { dy in
+            // Natural scrolling: fingers down -> back to earlier text.
+            engine.jump(by: -dy)
+        }
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = !pinned

@@ -126,6 +126,9 @@ struct PrompterView: View {
                     .multilineTextAlignment(settings.textAlignment)
                     .frame(width: geo.size.width - CGFloat(settings.horizontalMargin) * 2,
                            alignment: settings.frameAlignment)
+                    // Take the FULL laid-out height (otherwise Text truncates
+                    // itself with "…" to the panel height and never scrolls on).
+                    .fixedSize(horizontal: false, vertical: true)
                     .background(
                         GeometryReader { textGeo in
                             Color.clear.preference(key: ContentHeightKey.self, value: textGeo.size.height)
