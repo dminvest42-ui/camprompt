@@ -117,18 +117,24 @@ struct CameraSettingsPopover: View {
             Toggle("Зеркальное превью", isOn: $settings.mirrorPreview)
             Toggle("Текст поверх превью", isOn: $settings.overlayTextOnPreview)
 
-            Section {
+            Section("Записи") {
+                Picker("Куда сохранять", selection: $settings.recordingsFolder) {
+                    Text("Загрузки").tag("downloads")
+                    Text("Документы").tag("documents")
+                    Text("Фильмы").tag("movies")
+                }
                 Button {
                     recordings.openFolder()
                 } label: {
-                    Label("Папка записей (~/Movies/Teleprompter)", systemImage: "folder")
+                    Label("Открыть папку записей", systemImage: "folder")
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(width: 340, height: 300)
+        .frame(width: 340, height: 340)
         .onAppear { capture.refreshDevices() }
         .onChange(of: settings.selectedCameraID) { _, _ in capture.applyDeviceSelection() }
         .onChange(of: settings.selectedMicID) { _, _ in capture.applyDeviceSelection() }
+        .onChange(of: settings.recordingsFolder) { _, _ in recordings.refresh() }
     }
 }

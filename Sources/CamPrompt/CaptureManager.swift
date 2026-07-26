@@ -23,8 +23,15 @@ final class CaptureManager: NSObject, ObservableObject, @unchecked Sendable {
     private var currentAudioInput: AVCaptureDeviceInput?
 
     static var recordingsDirectory: URL {
-        let movies = FileManager.default.urls(for: .moviesDirectory, in: .userDomainMask)[0]
-        let dir = movies.appendingPathComponent("Teleprompter")
+        let choice = UserDefaults.standard.string(forKey: "recordingsFolder") ?? "downloads"
+        let base: FileManager.SearchPathDirectory
+        switch choice {
+        case "documents": base = .documentDirectory
+        case "movies": base = .moviesDirectory
+        default: base = .downloadsDirectory
+        }
+        let root = FileManager.default.urls(for: base, in: .userDomainMask)[0]
+        let dir = root.appendingPathComponent("Teleprompter")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir
     }

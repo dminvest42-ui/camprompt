@@ -37,6 +37,8 @@ final class SettingsStore: ObservableObject {
     @Published var selectedCameraID: String { didSet { d.set(selectedCameraID, forKey: "selectedCameraID") } }
     @Published var selectedMicID: String { didSet { d.set(selectedMicID, forKey: "selectedMicID") } }
     @Published var overlayTextOnPreview: Bool { didSet { d.set(overlayTextOnPreview, forKey: "overlayTextOnPreview") } }
+    /// "downloads" | "documents" | "movies"
+    @Published var recordingsFolder: String { didSet { d.set(recordingsFolder, forKey: "recordingsFolder") } }
 
     init() {
         func dbl(_ key: String, _ def: Double) -> Double {
@@ -75,6 +77,7 @@ final class SettingsStore: ObservableObject {
         selectedCameraID = str("selectedCameraID", "")
         selectedMicID = str("selectedMicID", "")
         overlayTextOnPreview = bool("overlayTextOnPreview", false)
+        recordingsFolder = str("recordingsFolder", "downloads")
     }
 
     /// Points per second derived from the 1...100 speed knob.
