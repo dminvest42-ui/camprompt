@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Pre-commit для CamPrompt.
+#
+# Репозиторий ПУБЛИЧНЫЙ, и cron projects-auto-sync коммитит эту папку
+# каждые 5 минут без участия человека. Поэтому gitleaks здесь —
+# блокирующая проверка: лучше сорванный авто-коммит (auto-sync пишет
+# commit=fail и продолжает работать), чем секрет в открытом доступе.
+#
+# Проверка ссылок в документации — предупреждение, не блокировка:
+# висящая ссылка не повод останавливать авто-синк.
+
+set -uo pipefail
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# ─── 1. Секреты в staged-файлах (блокирует) ───
+if command -v gitleaks >/dev/null 2>&1; then
+    if ! gitleaks protect --staged --redact -c .gitleaks.toml \
+         >/tmp/gitleaks-camprompt.log 2>&1; then
+        echo "❌ pre-commit: gitleaks нашёл секрет — репозиторий ПУБЛИЧНЫЙ, коммит остановлен"
+        cat /tmp/gitleaks-camprompt.log
+        echo "   Убрать значение из файла либо добавить путь в .gitignore / .gitleaks.toml"
+        exit 1
+    fi
+else
+    echo "⚠️  pre-commit: gitleaks не установлен — проверка секретов пропущена"
+fi
+
+# ─── 2. Файлы, которых в публичном репозитории быть не должно (блокирует) ───
+FORBIDDEN=$(git diff --cached --name-only --diff-filter=ACM | grep -iE \
+    '(^|/)\.env($|\.)|(^|/)id_(rsa|ed25519)($|\.)|\.(pem|p12|pfx|key|keychain|mobileprovision)$|(^|/)\.netrc$|credentials\.json$|service[-_]account.*\.json$' || true)
+if [ -n "$FORBIDDEN" ]; then
+    echo "❌ pre-commit: в коммит попали файлы, которым не место в публичном репозитории:"
+    echo "$FORBIDDEN" | sed 's/^/   /'
+    exit 1
+fi
+
+# ─── 3. Ссылки в документации (предупреждение) ───
+STAGED_MD=$(git diff --cached --name-only --diff-filter=ACM | grep '\.md$' || true)
+if [ -n "$STAGED_MD" ] && [ -f scripts/check_docs_links.py ]; then
+    if ! python3 scripts/check_docs_links.py >/tmp/camprompt-links.log 2>&1; then
+        echo "⚠️  pre-commit: в документации есть битые ссылки (коммит не остановлен):"
+        grep -E '^\s+\S+\.md:' /tmp/camprompt-links.log | head -10 | sed 's/^/   /'
+    fi
+fi
+
+echo "✓ pre-commit OK"

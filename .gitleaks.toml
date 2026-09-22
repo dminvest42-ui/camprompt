@@ -1,0 +1,34 @@
+# gitleaks для CamPrompt.
+#
+# ВАЖНО: это ЕДИНСТВЕННЫЙ публичный репозиторий аккаунта, и папка
+# ~/projects/teleprompter/ обслуживается cron'ом projects-auto-sync
+# (каждые 5 минут `git add -A` + commit + push). Любой файл, случайно
+# оказавшийся в папке, уезжает в публичный доступ автоматически.
+# Этот конфиг + pre-commit hook — единственный барьер на этом пути.
+#
+# Активация hook: bash scripts/setup-git-hooks.sh
+
+title = "CamPrompt (public repo)"
+
+[extend]
+# Встроенные правила gitleaks: AWS, GitHub/Slack/Telegram-токены,
+# приватные ключи RSA/ed25519, JWT и прочее.
+useDefault = true
+
+[allowlist]
+description = "Что не считаем секретом"
+
+paths = [
+    # Клоны чужих MIT-репозиториев для изучения паттернов; в git не попадают
+    # (.gitignore), но если ignore снимут — их секреты не наши.
+    '''^refs/''',
+    # Сам конфиг
+    '''\.gitleaks\.toml$''',
+]
+
+regexTarget = "match"
+regexes = [
+    # Документационные placeholder'ы Apple/AWS
+    '''AKIAIOSFODNN7EXAMPLE''',
+    '''(?i)(test|example|placeholder|dummy|fake|sample)[-_]?(token|key|secret)''',
+]
