@@ -8,6 +8,9 @@ struct PrompterView: View {
     let topInset: CGFloat
     let pinned: Bool
 
+    /// Speed increment of the HUD +/- buttons (arrow keys use ±5).
+    static let hudSpeedStep: Double = 1
+
     @State private var hovering = false
     @State private var speedText = ""
     @FocusState private var speedFieldFocused: Bool
@@ -174,9 +177,12 @@ struct PrompterView: View {
             HStack(spacing: 12) {
                 hudButton(engine.isPlaying ? "pause.fill" : "play.fill") { engine.togglePlay() }
                 hudButton("backward.end.fill") { engine.restart() }
-                hudButton("minus") { settings.speed = max(1, settings.speed - 5) }
+                // Step 1: the HUD is for fine tuning (hitting exactly 20 or
+                // 21). Coarse jumps are the arrow keys (±5) or typing the
+                // number into the field between the buttons.
+                hudButton("minus") { settings.speed = max(1, settings.speed - PrompterView.hudSpeedStep) }
                 speedField
-                hudButton("plus") { settings.speed = min(100, settings.speed + 5) }
+                hudButton("plus") { settings.speed = min(100, settings.speed + PrompterView.hudSpeedStep) }
                 hudButton("xmark") { state.hidePanel() }
             }
             .padding(.horizontal, 12)
