@@ -195,6 +195,30 @@ struct MainWindowView: View {
             .aspectRatio(16.0 / 10.0, contentMode: .fit)
             .padding([.horizontal, .top], 16)
 
+            // Problems that happen while the session is up (no video signal,
+            // microphone denied) used to be invisible — the preview only
+            // showed lastError when the camera was off.
+            if capture.isSessionRunning, let err = capture.lastError {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(err)
+                        .font(.caption)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: 0)
+                    Button {
+                        capture.lastError = nil
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.caption2)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(10)
+                .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 16)
+            }
+
             recordControls
                 .padding(.bottom, 14)
         }

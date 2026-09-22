@@ -45,6 +45,7 @@ struct PrompterView: View {
 
             if hovering {
                 controlsHUD
+                resizeGrips
             }
         }
         .clipShape(PanelShape(pinned: pinned))
@@ -191,6 +192,33 @@ struct PrompterView: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: - Resize grips
+
+    /// Decorative only: the edge drag is intercepted by ScrollForwardingPanel.
+    private var resizeGrips: some View {
+        ZStack {
+            HStack {
+                grip(vertical: true)
+                Spacer()
+                grip(vertical: true)
+            }
+            .padding(.horizontal, 3)
+            VStack {
+                Spacer()
+                grip(vertical: false)
+            }
+            .padding(.bottom, 3)
+        }
+        .allowsHitTesting(false)
+        .transition(.opacity)
+    }
+
+    private func grip(vertical: Bool) -> some View {
+        Capsule()
+            .fill(Color.white.opacity(0.4))
+            .frame(width: vertical ? 3 : 36, height: vertical ? 36 : 3)
     }
 
     private func timeString(_ s: Int) -> String {

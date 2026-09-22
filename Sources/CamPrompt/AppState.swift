@@ -64,12 +64,17 @@ final class AppState: ObservableObject {
         engine.pause()
     }
 
-    /// Re-create the panel when geometry-affecting settings change.
+    /// Re-create the panel when mode-affecting settings change (pinned / capture sharing).
     func reloadPanelIfVisible() {
         guard panelVisible else { return }
         panelController?.hide()
         panelController = PrompterPanelController(state: self)
         panelController?.show()
+    }
+
+    /// Live resize (width / text height) without recreating the panel.
+    func applyPanelGeometry() {
+        panelController?.applyGeometry()
     }
 
     // MARK: - Recording flow
@@ -141,9 +146,14 @@ final class AppState: ObservableObject {
     }
 
     private func beginRecording() {
+        // No live video → stay idle. Never show a "recording" that would
+        // only write an audio track.
+        guard capture.startRecording() else {
+            recordingState = .idle
+            return
+        }
         recordingState = .recording
         recordingSeconds = 0
-        capture.startRecording()
         engine.restart()
         engine.play()
         recordingTimer?.invalidate()
