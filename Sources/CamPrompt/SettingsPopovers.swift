@@ -34,7 +34,14 @@ struct NumberSliderRow: View {
     var body: some View {
         LabeledContent(title) {
             HStack(spacing: 6) {
-                Slider(value: $value, in: range, step: step)
+                // No `step:` on the Slider itself: on macOS a stepped Slider
+                // draws a tick mark per step (1 300 of them for the panel
+                // width) and the popover takes seconds to open. Snapping to
+                // the step happens in the binding instead.
+                Slider(value: Binding(
+                    get: { value },
+                    set: { value = snap($0) }
+                ), in: range)
                 TextField("", text: $text)
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
@@ -62,6 +69,12 @@ struct NumberSliderRow: View {
         text = format(value)
     }
 
+    /// Round to the step and clamp to the range.
+    private func snap(_ raw: Double) -> Double {
+        let snapped = (raw / step).rounded() * step
+        return min(max(snapped, range.lowerBound), range.upperBound)
+    }
+
     /// Parse what was typed, snap to the step, clamp to the range.
     private func commit() {
         let cleaned = text
@@ -71,9 +84,7 @@ struct NumberSliderRow: View {
             sync()
             return
         }
-        let raw = typed / scale
-        let snapped = (raw / step).rounded() * step
-        value = min(max(snapped, range.lowerBound), range.upperBound)
+        value = snap(typed / scale)
         sync()
     }
 

@@ -177,8 +177,11 @@ final class AppState: ObservableObject {
 
     /// Local key handler. Returns true when the event was consumed.
     func handleKeyDown(_ event: NSEvent) -> Bool {
-        // Never steal keystrokes from text editing.
-        if let responder = NSApp.keyWindow?.firstResponder, responder is NSTextView {
+        // Never steal keystrokes from text editing (main-window editor or
+        // the speed field in the panel HUD — NSApp.keyWindow is nil while the
+        // non-activating panel is key, so look at the event's own window).
+        let responder = event.window?.firstResponder ?? NSApp.keyWindow?.firstResponder
+        if responder is NSTextView || responder is NSTextField {
             return false
         }
         // Only react when the prompter panel is visible or we are recording.

@@ -9,6 +9,8 @@ struct PrompterView: View {
     let pinned: Bool
 
     @State private var hovering = false
+    @State private var speedText = ""
+    @FocusState private var speedFieldFocused: Bool
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -43,8 +45,12 @@ struct PrompterView: View {
                 countdownOverlay(n)
             }
 
-            if hovering {
+            // Keep the HUD while the speed number is being typed, even if
+            // the mouse wandered off the panel.
+            if hovering || speedFieldFocused {
                 controlsHUD
+            }
+            if hovering {
                 resizeGrips
             }
         }
@@ -165,22 +171,63 @@ struct PrompterView: View {
     private var controlsHUD: some View {
         VStack {
             Spacer()
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 hudButton(engine.isPlaying ? "pause.fill" : "play.fill") { engine.togglePlay() }
                 hudButton("backward.end.fill") { engine.restart() }
                 hudButton("minus") { settings.speed = max(1, settings.speed - 5) }
-                Text("\(Int(settings.speed))")
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.9))
+                speedField
                 hudButton("plus") { settings.speed = min(100, settings.speed + 5) }
                 hudButton("xmark") { state.hidePanel() }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
-            .padding(.bottom, 8)
+            // Solid dark capsule: `.ultraThinMaterial` rendered white in the
+            // light system appearance and hid the white icons.
+            .background(Color.black.opacity(0.8), in: Capsule())
+            .overlay(Capsule().stroke(Color.white.opacity(0.3), lineWidth: 1))
+            .environment(\.colorScheme, .dark)
+            .padding(.bottom, 10)
         }
         .transition(.opacity)
+    }
+
+    /// Speed as an editable number: click, type 1–100, Enter. Works because
+    /// the panel can become key without activating the app (see
+    /// ScrollForwardingPanel.canBecomeKey).
+    private var speedField: some View {
+        TextField("", text: $speedText)
+            .textFieldStyle(.plain)
+            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+            .foregroundColor(.white)
+            .multilineTextAlignment(.center)
+            .frame(width: 38, height: 20)
+            .background(
+                Color.white.opacity(speedFieldFocused ? 0.25 : 0.12),
+                in: RoundedRectangle(cornerRadius: 5)
+            )
+            .focused($speedFieldFocused)
+            .onSubmit {
+                commitSpeed()
+                speedFieldFocused = false
+            }
+            .onAppear { speedText = "\(Int(settings.speed))" }
+            .onChange(of: settings.speed) { _, v in
+                if !speedFieldFocused { speedText = "\(Int(v))" }
+            }
+            .onChange(of: speedFieldFocused) { _, focused in
+                if !focused { commitSpeed() }
+            }
+            .help("Скорость: нажмите на число и введите 1–100")
+    }
+
+    private func commitSpeed() {
+        let cleaned = speedText
+            .replacingOccurrences(of: ",", with: ".")
+            .trimmingCharacters(in: .whitespaces)
+        if let v = Double(cleaned) {
+            settings.speed = min(max(v.rounded(), 1), 100)
+        }
+        speedText = "\(Int(settings.speed))"
     }
 
     private func hudButton(_ systemName: String, action: @escaping () -> Void) -> some View {

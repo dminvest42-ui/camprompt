@@ -23,6 +23,11 @@ final class ScrollForwardingPanel: NSPanel {
 
     private var drag: (edge: PanelEdge, start: NSPoint, frame: NSRect)?
 
+    /// Borderless panels refuse key status by default; the speed field in
+    /// the HUD needs it. The panel is non-activating, so the app in front
+    /// stays in front — only keystrokes are routed here after a click.
+    override var canBecomeKey: Bool { true }
+
     override func scrollWheel(with event: NSEvent) {
         let dy = event.hasPreciseScrollingDeltas
             ? event.scrollingDeltaY
