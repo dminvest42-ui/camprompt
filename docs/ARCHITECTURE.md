@@ -1,6 +1,6 @@
 # Архитектура CamPrompt
 
-Состояние: v0.1 реализована. Файлы — `Sources/CamPrompt/`.
+Состояние: v0.2 реализована (2026-09-22). Файлы — `Sources/CamPrompt/`.
 
 ## Слои
 
@@ -32,9 +32,12 @@
 3. **Однонаправленный поток состояния.** Все сервисы — `ObservableObject`, инжектятся через `environmentObject`. Панель получает ссылки напрямую (без environment — у неё своя NSHostingView-иерархия).
 4. **Конкурентность.** UI-классы `@MainActor`. `CaptureManager` — не изолирован (работа на `sessionQueue`), `@Published` мутируются только через main. Swift 5 language mode (tools 5.9) — без строгой Sendable-проверки.
 5. **Запись через `AVCaptureMovieFileOutput`** (не AVAssetWriter): муксинг видео+звук из коробки, меньше кода — надёжнее для v0.1. Апгрейд-путь на AVAssetWriter (пауза записи, фильтры) не ломает интерфейс CaptureManager.
+   - **Preset выбирается ПОСЛЕ добавления входов** (v0.2): `.high` → входы → `.hd1920x1080` только если `canSetSessionPreset` говорит «да» уже с входами. С пустой сессией любой preset «поддерживается», и камера 720p потом молча отклонялась `canAddInput` (инцидент 2026-09-22). Отказ входа = `lastError` + сессия не считается запущенной; `startRecording()` отказывает без активного видео-соединения (иначе получался .mov только со звуком). Диагностика: `diagnosticsReport()` → буфер обмена, логи `os.Logger` subsystem `ru.olya.camprompt`.
 6. **ScrollEngine — Timer 60 Гц**, `offset += pointsPerSecond * dt` с реальным dt (CACurrentMediaTime). Текст — ОДНА `Text`-нода с `.offset(y:)` → композитинг без relayout. Конец текста: стоп или луп (настройка).
 7. **Панель**: `NSPanel(.borderless, .nonactivatingPanel)`, `level=.screenSaver`, `collectionBehavior=[.canJoinAllSpaces,.fullScreenAuxiliary,.stationary]`, `sharingType` по настройке. Геометрия: центр по `midX` notch-экрана (`safeAreaInsets.top > 0`), `height = menuBarHeight + textHeight`, `y = screenFrame.maxY - height`. Скруглённый низ (PanelShape) — визуально «расширенный notch».
-8. **Пересоздание панели** при смене геометрии/режима (reloadPanelIfVisible) вместо живой перестройки — проще и надёжнее для v0.1.
+8. **Пересоздание панели** только при смене режима (pinned / sharingType) — `reloadPanelIfVisible`. Ширина и высота меняются живо: `applyGeometry()` → `setFrame` (v0.2).
+9. **Резайз панели мышью** (v0.2): `ScrollForwardingPanel.sendEvent` перехватывает `leftMouseDown` в 8pt-зоне у левого/правого/нижнего края и ведёт drag по `NSEvent.mouseLocation` (экранные координаты — не зависят от движения самого окна), отдавая `(edge, dx, dy, startFrame, finished)` контроллеру. Перехват на уровне окна — чтобы работало и в floating-режиме с `isMovableByWindowBackground`. В pinned-режиме панель остаётся по центру под камерой (оба края двигаются). Настройки пишутся только на mouseUp. Курсор ↔/↕ — `PanelHostingView` (подкласс `NSHostingView`) с tracking areas `.cursorUpdate + .activeAlways` (панель никогда не key). Грипы в `PrompterView` — декоративные.
+10. **`NumberSliderRow`** — ползунок с шагом + текстовое поле: точное значение вводится с клавиатуры (Enter / потеря фокуса), снап к шагу, клампинг к диапазону; `scale` показывает доли как проценты.
 
 ## Файлы
 
@@ -45,13 +48,13 @@
 | SettingsStore.swift | 20+ настроек в UserDefaults, hex-цвета | 150 |
 | ScriptStore.swift | модель Script + JSON-библиотека | 90 |
 | ScrollEngine.swift | 60fps прокрутка, луп | 80 |
-| CaptureManager.swift | discovery/permissions/session/запись | 200 |
+| CaptureManager.swift | discovery/permissions/session/запись/диагностика | 360 |
 | RecordingsStore.swift | список записей, Finder-интеграция | 60 |
-| PrompterPanelController.swift | NSPanel под notch | 90 |
+| PrompterPanelController.swift | NSPanel под notch, edge-drag resize, курсоры | 260 |
 | PrompterView.swift | текст+якорь+HUD, PanelShape | 160 |
 | CameraPreviewView.swift | NSViewRepresentable превью-слоя | 50 |
 | MainWindowView.swift | главное окно | 280 |
-| SettingsPopovers.swift | три поповера настроек | 160 |
+| SettingsPopovers.swift | NumberSliderRow + три поповера настроек | 250 |
 
 ## Сборка и дистрибуция
 
