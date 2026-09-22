@@ -12,6 +12,7 @@ Notch-телесуфлёры (Notchie, CueNotch, Textream, NotchPrompt) не з�
 
 - Плавающая панель суфлёра, закреплённая под notch — поверх всех приложений (включая fullscreen).
 - Плавный автоскролл со строкой-якорем, скорость 1–100, пауза/пуск/с начала, луп.
+- Плашка управления прямо на суфлёре: пуск/пауза, «с начала», скорость кнопками ±1 или вводом числа.
 - Библиотека скриптов со встроенным редактором.
 - Настройка текста: шрифт, размер, жирность, цвета, прозрачность фона, межстрочный интервал, отступы, выравнивание, зеркальный текст (для beam-splitter ригов).
 - Камера: живое превью, выбор камеры (встроенная / Continuity / внешняя) и микрофона, зеркальное превью.
@@ -19,7 +20,6 @@ Notch-телесуфлёры (Notchie, CueNotch, Textream, NotchPrompt) не з�
 - Размер окна суфлёра меняется мышью: потяните за левый, правый или нижний край (v0.2).
 - У каждого ползунка настроек есть поле с числом — точное значение можно вписать с клавиатуры (v0.2).
 - Камера → «Скопировать диагностику»: отчёт о камерах, разрешениях и сессии записи для разбора проблем (v0.2).
-- Горячие клавиши: `Пробел` пауза/пуск · `R` с начала · `↑/↓` скорость · `←/→` перемотка · `Esc` скрыть панель.
 - Опция «прятать суфлёр от записи экрана» (Zoom/OBS/QuickTime не увидят текст).
 
 ## Установка
@@ -41,25 +41,43 @@ Notch-телесуфлёры (Notchie, CueNotch, Textream, NotchPrompt) не з�
 3. Закройте другие приложения с камерой (FaceTime, Zoom, Photo Booth) и нажмите «Включить камеру».
 4. Если не помогло — Камера (кнопка в тулбаре) → «Скопировать диагностику» и пришлите текст из буфера обмена: в нём список камер с их разрешениями и состояние сессии записи.
 
+## Горячие клавиши
+
+`Пробел` пауза/пуск · `R` с начала · `↑/↓` скорость ±5 · `←/→` перемотка · `Esc` скрыть суфлёр · `⌘T` показать/скрыть суфлёр · `⌘E` запись · `⌘N` новый скрипт.
+
+Работают, пока CamPrompt — активное приложение.
+
 ## Сборка из исходников
 
 ```bash
-swift build            # проверка компиляции
-bash scripts/build_app.sh 0.1.0   # соберёт dist/CamPrompt.app + .dmg (нужен macOS)
+swift build                       # проверка компиляции (нужен macOS)
+bash scripts/build_app.sh 0.2.2   # соберёт dist/CamPrompt.app + .dmg
 ```
 
-CI (GitHub Actions, macos-15) собирает `.dmg` на каждый пуш в `main`; тег `v*` публикует Release.
+CI (GitHub Actions, macos-15) собирает `.dmg` на каждый пуш в `main`; тег `v*` публикует Release. Сборка возможна **только на macOS** — среда разработки Linux, поэтому единственный путь релиза лежит через CI.
 
 ## Архитектура
 
-SwiftUI (UI) + AppKit (оконный слой) без внешних зависимостей:
+SwiftUI (содержимое) + AppKit (окна), без внешних зависимостей:
 
-- `PrompterPanelController` — borderless `NSPanel` (`.nonactivatingPanel`, level `.screenSaver`, `canJoinAllSpaces + fullScreenAuxiliary`), позиционирование по геометрии notch-экрана.
-- `ScrollEngine` — 60 fps таймер прокрутки.
-- `CaptureManager` — `AVCaptureSession` + `AVCaptureMovieFileOutput` (превью + запись).
-- `ScriptStore` / `SettingsStore` / `RecordingsStore` — persistence (JSON + UserDefaults).
+- `PrompterPanelController` — borderless `NSPanel` (`.nonactivatingPanel`, level `.screenSaver`, `canJoinAllSpaces + fullScreenAuxiliary`), позиция по геометрии экрана с вырезом, ресайз за края.
+- `ScrollEngine` — таймер 60 Гц, смещение текста, луп.
+- `CaptureManager` — `AVCaptureSession` + `AVCaptureMovieFileOutput` (превью, запись, диагностика).
+- `ScriptStore` / `SettingsStore` / `RecordingsStore` — хранение (JSON + UserDefaults + файлы).
 
-Подробности: [docs/RESEARCH.md](docs/RESEARCH.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/DEV_PLAN.md](docs/DEV_PLAN.md), [docs/RISKS.md](docs/RISKS.md).
+## Документация
+
+| Файл | О чём |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | Правила работы в репозитории (для разработчика и ИИ-агента) |
+| [docs/AGENT_ONBOARDING.md](docs/AGENT_ONBOARDING.md) | **Точка входа:** контекст, карта, первый цикл правки |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Слои, точки входа, сценарий записи, геометрия панели, ключи настроек, карта файлов |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | Журнал решений: что выбрали, что отклонили и почему; разбор инцидентов |
+| [CHANGELOG.md](CHANGELOG.md) | История версий |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Симптом → причина → что делать; отладка без Mac |
+| [docs/RISKS.md](docs/RISKS.md) | Ограничения macOS, чек-лист приёмки |
+| [docs/DEV_PLAN.md](docs/DEV_PLAN.md) | Вехи M0–M6, что дальше |
+| [docs/RESEARCH.md](docs/RESEARCH.md) | Обзор рынка и техническая разведка (июль 2026) |
 
 ## Лицензия
 

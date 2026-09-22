@@ -1,6 +1,8 @@
 # План разработки CamPrompt
 
-Статусы: ✅ сделано в v0.1 · 🔜 следующее · 🧊 по запросу Olya.
+Статусы: ✅ сделано · 🔜 следующее · 🧊 по запросу Olya.
+
+Навигация: [AGENT_ONBOARDING](AGENT_ONBOARDING.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DECISIONS](DECISIONS.md) · [TROUBLESHOOTING](TROUBLESHOOTING.md) · [RISKS](RISKS.md) · [CHANGELOG](../CHANGELOG.md)
 
 ## M0 — Каркас + окно под notch ✅
 
@@ -57,6 +59,11 @@
 - Поповеры «Текст»/«Суфлёр» открывались секунды: `Slider(step:)` на macOS рисует засечку на каждый шаг (1300 для ширины). Шаг перенесён в Binding.
 - HUD шторки: тёмная капсула вместо `.ultraThinMaterial` (белая в светлой теме — кнопки не видны); число скорости — редактируемое поле (клик → ввод → Enter). Для фокуса панель получила `canBecomeKey = true` (nonactivating — приложение впереди не меняется); `handleKeyDown` смотрит `event.window.firstResponder`.
 - Smoke Оли на проблемном Mac: камера 720p заработала (v0.2.0 подтверждён).
+
+## v0.2.2 (2026-09-22) — точный шаг скорости ✅
+
+- Кнопки ± на плашке суфлёра шагают по 1 (было 5): «нужно 20, а попадаю в 18 или 23». Стрелки ↑/↓ остались ±5, поле ввода — любое число сразу ([DECISIONS D-017](DECISIONS.md#d-017-кнопки--на-плашке-шагают-по-1)).
+- Константа `PrompterView.hudSpeedStep`.
 
 ## M6 — Дистрибуция 🔜/🧊
 
