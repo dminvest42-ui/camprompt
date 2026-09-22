@@ -1,6 +1,6 @@
 # План разработки CamPrompt
 
-Статусы: ✅ сделано · 🔜 следующее · 🧊 по запросу Olya.
+Статусы: ✅ сделано · 🔜 следующее · 🧊 по запросу владельца.
 
 Навигация: [AGENT_ONBOARDING](AGENT_ONBOARDING.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DECISIONS](DECISIONS.md) · [TROUBLESHOOTING](TROUBLESHOOTING.md) · [RISKS](RISKS.md) · [CHANGELOG](../CHANGELOG.md)
 
@@ -10,7 +10,7 @@
 - **Файлы:** Package.swift, Resources/Info.plist, scripts/build_app.sh, PrompterPanelController.swift.
 - **Сложность:** низкая. **Зависимости:** нет.
 - **Тест:** CI-сборка зелёная; на Mac панель видна поверх Safari/QuickTime/fullscreen.
-- **DoD:** .dmg из CI устанавливается, приложение запускается, панель на месте. ✅ (запуск на Mac — smoke Olya)
+- **DoD:** .dmg из CI устанавливается, приложение запускается, панель на месте. ✅ (запуск на Mac — ручной smoke)
 
 ## M1 — Скролл + редактор + кастомизация ✅
 
@@ -26,7 +26,7 @@
 - **Файлы:** CaptureManager (discovery/permissions/session), CameraPreviewView, CameraSettingsPopover.
 - **Сложность:** средняя.
 - **Тест:** превью 1080p без лагов; переключение устройств на лету; отказ в TCC → внятное сообщение.
-- **DoD:** превью работает со встроенной, Continuity и внешней камерой. ✅ (живой тест — Olya)
+- **DoD:** превью работает со встроенной, Continuity и внешней камерой. ✅ (живой тест на Mac)
 
 ## M3 — Запись + countdown + сохранение ✅
 
@@ -46,7 +46,7 @@
 
 - ✅ v0.2.0: drag-створка ширины/высоты панели (левый/правый/нижний край), числовые поля у всех ползунков, live-resize панели из настроек без пересоздания.
 - 🔜 Миниатюры записей (AVAssetImageGenerator), follow-mouse на втором мониторе, «Текст поверх превью» с независимой геометрией, пресеты стилей текста, локализация EN.
-- **Сложность:** средняя. **DoD:** по фидбеку Olya после первых съёмок.
+- **Сложность:** средняя. **DoD:** по фидбеку после первых съёмок.
 
 ## v0.2.0 (2026-09-22) — фикс камеры 720p + резайз панели ✅
 
@@ -68,7 +68,7 @@
 ## M6 — Дистрибуция 🔜/🧊
 
 - 🔜 Sparkle 2 (авто-обновления): EdDSA-ключи, appcast на GitHub Pages.
-- 🧊 Нотарификация: нужен Apple Developer аккаунт Olya → Developer ID Application cert + App Store Connect API key в GitHub secrets → `xcrun notarytool submit` в CI. После этого установка без xattr-команды.
+- 🧊 Нотарификация: нужен Apple Developer аккаунт → Developer ID Application cert + App Store Connect API key в GitHub secrets → `xcrun notarytool submit` в CI. После этого установка без xattr-команды.
 - 🧊 App Store: sandbox + security-scoped bookmarks, review-риски низкие (все API публичные).
 
 ## v2-фичи (по фидбеку) 🧊
@@ -84,6 +84,6 @@
 ## Стратегия тестирования
 
 - **CI:** компиляция + бандлинг на каждый пуш (первый и главный gate без Mac под рукой).
-- **Smoke на Mac (Olya, 5 минут):** установка → TCC-диалоги → панель под notch → скролл → запись 30 сек → файл в QuickTime.
+- **Smoke на Mac (5 минут):** установка → TCC-диалоги → панель под notch → скролл → запись 30 сек → файл в QuickTime.
 - **Регресс перед релизом:** чек-лист из 12 пунктов (docs/RISKS.md §7).
 - Unit-тесты: ScrollEngine (математика offset/loop) и SettingsStore (персистентность) — добавить в M5.
