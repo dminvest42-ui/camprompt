@@ -39,6 +39,8 @@ final class SettingsStore: ObservableObject {
     @Published var overlayTextOnPreview: Bool { didSet { d.set(overlayTextOnPreview, forKey: "overlayTextOnPreview") } }
     /// "downloads" | "documents" | "movies"
     @Published var recordingsFolder: String { didSet { d.set(recordingsFolder, forKey: "recordingsFolder") } }
+    /// RecordingQuality.rawValue: "economy" | "standard" | "max"
+    @Published var recordingQuality: String { didSet { d.set(recordingQuality, forKey: "recordingQuality") } }
 
     init() {
         func dbl(_ key: String, _ def: Double) -> Double {
@@ -78,6 +80,7 @@ final class SettingsStore: ObservableObject {
         selectedMicID = str("selectedMicID", "")
         overlayTextOnPreview = bool("overlayTextOnPreview", false)
         recordingsFolder = str("recordingsFolder", "downloads")
+        recordingQuality = str("recordingQuality", RecordingQuality.standard.rawValue)
     }
 
     /// Points per second derived from the 1...100 speed knob.
@@ -112,6 +115,69 @@ final class SettingsStore: ObservableObject {
         "System", "Helvetica Neue", "Arial", "Georgia", "Avenir Next",
         "Times New Roman", "Menlo", "Verdana", "Charter", "PT Sans", "PT Serif"
     ]
+}
+
+// MARK: - Recording quality
+
+/// How hard the recording is compressed (DECISIONS D-020).
+///
+/// A talking head on a calm background needs far less than the ~13 Mbit/s
+/// that AVCaptureMovieFileOutput writes by default (30 min ≈ 3 GB — more
+/// than the 2 GB the intake Telegram bot can take). HEVC is encoded by the
+/// Mac's media engine, so the smaller file costs no CPU and no visible quality.
+enum RecordingQuality: String, CaseIterable, Identifiable {
+    case economy
+    case standard
+    case max
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .economy: return "Экономно"
+        case .standard: return "Стандарт"
+        case .max: return "Максимум"
+        }
+    }
+
+    /// Target video bitrate for 1080p, bits per second; nil = no limit.
+    var videoBitrate1080p: Int? {
+        switch self {
+        case .economy: return 2_300_000
+        case .standard: return 3_500_000
+        case .max: return nil
+        }
+    }
+
+    /// Bitrate for the camera's real frame size. Scaled by pixel count so a
+    /// 720p camera does not get a 1080p budget, with a floor so it is not
+    /// starved either.
+    func videoBitrate(width: Int, height: Int) -> Int? {
+        guard let base = videoBitrate1080p else { return nil }
+        let ratio = Double(width * height) / Double(1920 * 1080)
+        return Int(Double(base) * Swift.min(1.0, Swift.max(0.6, ratio)))
+    }
+
+    /// Rough total rate (video + ~0.15 Mbit/s audio). `.max` uses the
+    /// ~13 Mbit/s measured on real CamPrompt recordings.
+    var approxTotalMbitPerSecond: Double {
+        guard let v = videoBitrate1080p else { return 13.3 }
+        return Double(v) / 1_000_000 + 0.15
+    }
+
+    /// Human hint under the picker: size per 10 min, per 30 min lesson,
+    /// and how long a recording still fits into the 2 GB Telegram bot.
+    var hint: String {
+        let mbPer10 = approxTotalMbitPerSecond * 600 / 8
+        let gbPer30 = mbPer10 * 3 / 1000
+        let minutesIn2GB = Int(2000 / (approxTotalMbitPerSecond / 8) / 60)
+        let codec = self == .max ? "H.264 без ограничения" : "HEVC"
+        let per10 = mbPer10 >= 950
+            ? "≈ 1 ГБ за 10 минут"
+            : String(format: "≈ %.0f МБ за 10 минут", mbPer10)
+        let per30 = String(format: "урок 30 мин ≈ %.1f ГБ", gbPer30).replacingOccurrences(of: ".", with: ",")
+        return "\(codec) · \(per10), \(per30). В бота влезает до ~\(minutesIn2GB) мин."
+    }
 }
 
 // MARK: - Hex color helpers

@@ -3,6 +3,7 @@ import AVFoundation
 import AppKit
 import CoreMedia
 import os
+import ObjCExceptionCatcher
 
 private let log = Logger(subsystem: "ru.olya.camprompt", category: "capture")
 
@@ -19,6 +20,10 @@ final class CaptureManager: NSObject, ObservableObject, @unchecked Sendable {
     /// What the session actually delivers (camera, resolution, preset) —
     /// shown in the camera settings so a black preview is explainable.
     @Published var activeFormatInfo: String = "—"
+    /// What the current / last recording was actually told to use.
+    @Published var recordingFormatInfo: String = "—"
+    /// Measured result of the last finished recording (size, length, rate).
+    @Published var lastRecordingStats: String?
 
     weak var settings: SettingsStore?
     var onRecordingFinished: ((URL?, Error?) -> Void)?
@@ -264,11 +269,54 @@ final class CaptureManager: NSObject, ObservableObject, @unchecked Sendable {
         formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
         let url = Self.recordingsDirectory
             .appendingPathComponent("CamPrompt_\(formatter.string(from: Date())).mov")
+        let quality = RecordingQuality(rawValue: settings?.recordingQuality ?? "") ?? .standard
         isRecording = true
         sessionQueue.async { [self] in
+            let applied = applyOutputSettings(quality)
+            log.info("recording with: \(applied, privacy: .public)")
+            DispatchQueue.main.async { self.recordingFormatInfo = applied }
             movieOutput.startRecording(to: url, recordingDelegate: self)
         }
         return true
+    }
+
+    /// Sets codec + bitrate on the video connection, trying the preferred
+    /// settings first and stepping down if the Mac rejects them. Runs on
+    /// sessionQueue. macOS has no `supportedOutputSettingsKeys(for:)` (it is
+    /// iOS-only) and signals rejection with an NSException, so every attempt
+    /// goes through CPTryObjC. Returns a human label of what took effect.
+    private func applyOutputSettings(_ quality: RecordingQuality) -> String {
+        guard let connection = movieOutput.connection(with: .video) else {
+            return "по умолчанию (нет видео-соединения)"
+        }
+        let codecs = movieOutput.availableVideoCodecTypes
+        let dims = currentVideoInput.map { CaptureManager.dimensions(of: $0.device.activeFormat) } ?? (1920, 1080)
+
+        var attempts: [(label: String, settings: [String: Any])] = []
+        if let bitrate = quality.videoBitrate(width: dims.0, height: dims.1) {
+            let useHEVC = codecs.contains(.hevc)
+            let codec: AVVideoCodecType = useHEVC ? .hevc : .h264
+            let name = useHEVC ? "HEVC" : "H.264"
+            let mbit = String(format: "%.1f", Double(bitrate) / 1_000_000).replacingOccurrences(of: ".", with: ",")
+            attempts.append((
+                "\(name) \(mbit) Мбит/с · \(dims.0)×\(dims.1)",
+                [AVVideoCodecKey: codec,
+                 AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: NSNumber(value: bitrate)]]
+            ))
+            if useHEVC {
+                // HEVC alone still roughly halves the file if the bitrate is refused.
+                attempts.append(("HEVC без ограничения (Mac не принял битрейт)", [AVVideoCodecKey: AVVideoCodecType.hevc]))
+            }
+        }
+        attempts.append(("H.264 без ограничения", [AVVideoCodecKey: AVVideoCodecType.h264]))
+
+        for attempt in attempts {
+            var error: NSError?
+            let ok = CPTryObjC({ self.movieOutput.setOutputSettings(attempt.settings, for: connection) }, &error)
+            if ok { return attempt.label }
+            log.error("setOutputSettings rejected (\(attempt.label, privacy: .public)): \(error?.localizedDescription ?? "?", privacy: .public)")
+        }
+        return "по умолчанию (все варианты отклонены)"
     }
 
     @MainActor
@@ -320,6 +368,10 @@ final class CaptureManager: NSObject, ObservableObject, @unchecked Sendable {
             lines.append("  соединение \(media): active=\(c.isActive) enabled=\(c.isEnabled)")
         }
         lines.append("Активный формат: \(activeFormatInfo)")
+        lines.append("Качество записи: \(settings?.recordingQuality ?? "?") → \(recordingFormatInfo)")
+        if let lastRecordingStats {
+            lines.append("Последняя запись: \(lastRecordingStats)")
+        }
         if let lastError {
             lines.append("Ошибка: \(lastError)")
         }
@@ -352,7 +404,23 @@ extension CaptureManager: AVCaptureFileOutputRecordingDelegate {
                     didFinishRecordingTo outputFileURL: URL,
                     from connections: [AVCaptureConnection],
                     error: Error?) {
+        // Real outcome, so "did the Mac honour the bitrate?" is visible in the
+        // camera settings without sending the file anywhere.
+        let bytes = Double(output.recordedFileSize)
+        let seconds = CMTimeGetSeconds(output.recordedDuration)
+        let stats: String? = {
+            guard seconds.isFinite, seconds > 0, bytes > 0 else { return nil }
+            let mb = bytes / 1_000_000
+            let mbit = bytes * 8 / seconds / 1_000_000
+            let s = Int(seconds.rounded())
+            return String(format: "%.0f МБ · %d:%02d · %.1f Мбит/с", mb, s / 60, s % 60, mbit)
+                .replacingOccurrences(of: ".", with: ",")
+        }()
+        if let stats {
+            log.info("recording finished: \(stats, privacy: .public)")
+        }
         DispatchQueue.main.async {
+            if let stats { self.lastRecordingStats = stats }
             self.isRecording = false
             self.onRecordingFinished?(error == nil ? outputFileURL : nil, error)
         }

@@ -240,6 +240,22 @@ struct CameraSettingsPopover: View {
             }
 
             Section("Записи") {
+                Picker("Качество записи", selection: $settings.recordingQuality) {
+                    ForEach(RecordingQuality.allCases) { q in
+                        Text(q.title).tag(q.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                Text((RecordingQuality(rawValue: settings.recordingQuality) ?? .standard).hint)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                if let stats = capture.lastRecordingStats {
+                    LabeledContent("Последняя запись") {
+                        Text(stats)
+                            .font(.caption)
+                            .multilineTextAlignment(.trailing)
+                    }
+                }
                 Picker("Куда сохранять", selection: $settings.recordingsFolder) {
                     Text("Загрузки").tag("downloads")
                     Text("Документы").tag("documents")
