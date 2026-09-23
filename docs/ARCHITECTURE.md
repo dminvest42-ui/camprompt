@@ -1,6 +1,6 @@
 # Архитектура CamPrompt
 
-Состояние: **v0.2.2** (2026-09-22). Исходники — [`Sources/CamPrompt/`](../Sources/CamPrompt/).
+Состояние: **v0.3.0** (2026-09-23). Исходники — [`Sources/CamPrompt/`](../Sources/CamPrompt/).
 
 Навигация: [AGENT_ONBOARDING](AGENT_ONBOARDING.md) · [DECISIONS](DECISIONS.md) · [TROUBLESHOOTING](TROUBLESHOOTING.md) · [RISKS](RISKS.md) · [DEV_PLAN](DEV_PLAN.md) · [RESEARCH](RESEARCH.md) · [CHANGELOG](../CHANGELOG.md)
 
@@ -129,7 +129,32 @@ commitConfiguration()
 
 **Диагностика** ([D-018](DECISIONS.md#d-018-диагностика--в-буфер-обмена)): `diagnosticsReport()` собирает версии, статусы TCC, список камер с максимальным и активным разрешением, занятость, состояние сессии и соединений, заметки последней конфигурации. `copyDiagnosticsToClipboard()` кладёт это в буфер. Параллельно — `os.Logger(subsystem: "ru.olya.camprompt", category: "capture")`.
 
-**Формат записи.** `.mov`, H.264/AAC, 1080p или максимум камеры. Имя: `CamPrompt_ГГГГ-ММ-ДД_ЧЧ-ММ-СС.mov`.
+**Формат записи** ([D-020](DECISIONS.md#d-020-качество-записи-hevc-с-потолком-битрейта-и-ступенчатый-откат)). `.mov` с AAC-звуком, 1080p или максимум камеры. Имя: `CamPrompt_ГГГГ-ММ-ДД_ЧЧ-ММ-СС.mov`. Кодек и битрейт задаёт настройка `recordingQuality`, применяется перед **каждой** записью:
+
+```
+startRecording()                              [main]
+  quality = settings.recordingQuality
+  sessionQueue:
+    applyOutputSettings(quality)
+      bitrate = база_1080p × clamp(пиксели/1080p, 0.6…1.0)
+      попытки через CPTryObjC (NSException → следующая):
+        1. HEVC + AVVideoAverageBitRateKey
+        2. H.264 + AVVideoAverageBitRateKey
+        3. HEVC без ограничения
+        4. H.264 без ограничения          ← единственная у «Максимума»
+      → recordingFormatInfo (что сработало)
+    movieOutput.startRecording(...)
+fileOutput(didFinishRecordingTo:)
+  recordedFileSize / recordedDuration → lastRecordingStats «МБ · мм:сс · Мбит/с»
+```
+
+| Режим | Видео | 30 мин | В бота 2 ГБ |
+|---|---|---|---|
+| `economy` | HEVC 2,3 Мбит/с | ≈ 0,6 ГБ | ~108 мин |
+| `standard` (по умолчанию) | HEVC 3,5 Мбит/с | ≈ 0,8 ГБ | ~73 мин |
+| `max` | H.264 без ограничения | ≈ 3 ГБ | ~20 мин |
+
+⚠️ На macOS нет ни `supportedOutputSettingsKeys(for:)`, ни `availableVideoCodecTypes` — обе только для iOS. Спросить Mac заранее нельзя, поэтому только пробовать под `CPTryObjC`.
 
 ---
 
@@ -218,6 +243,7 @@ menuBarHeight = screenFrame.maxY - visibleFrame.maxY     // полоса мен�
 | `selectedCameraID` / `selectedMicID` | String | `""` (авто) | `uniqueID` устройства |
 | `overlayTextOnPreview` | Bool | false | — |
 | `recordingsFolder` | String | `downloads` | downloads / documents / movies |
+| `recordingQuality` | String | `standard` | economy / standard / max ([D-020](DECISIONS.md#d-020-качество-записи-hevc-с-потолком-битрейта-и-ступенчатый-откат)) |
 
 `recordingsFolder` читается ещё и напрямую из `UserDefaults` в статическом `CaptureManager.recordingsDirectory` — ему нужен путь без экземпляра стора.
 
@@ -253,18 +279,20 @@ menuBarHeight = screenFrame.maxY - visibleFrame.maxY     // полоса мен�
 |---|---|---|
 | [CamPromptApp.swift](../Sources/CamPrompt/CamPromptApp.swift) | `@main`, сцены, меню, `AppDelegate` | 60 |
 | [AppState.swift](../Sources/CamPrompt/AppState.swift) | координатор, сценарий записи, клавиатура | 215 |
-| [CaptureManager.swift](../Sources/CamPrompt/CaptureManager.swift) | устройства, разрешения, сессия, запись, диагностика | 360 |
+| [CaptureManager.swift](../Sources/CamPrompt/CaptureManager.swift) | устройства, разрешения, сессия, качество записи с откатом, запись, диагностика | 430 |
 | [PrompterPanelController.swift](../Sources/CamPrompt/PrompterPanelController.swift) | `NSPanel`, геометрия, ресайз за края, курсоры | 260 |
 | [PrompterView.swift](../Sources/CamPrompt/PrompterView.swift) | текст, линия чтения, плашка, грипы, `PanelShape` | 290 |
 | [MainWindowView.swift](../Sources/CamPrompt/MainWindowView.swift) | сайдбар, редактор, превью, кнопки, баннер ошибки | 330 |
 | [SettingsPopovers.swift](../Sources/CamPrompt/SettingsPopovers.swift) | `NumberSliderRow` + три поповера | 260 |
-| [SettingsStore.swift](../Sources/CamPrompt/SettingsStore.swift) | 25 настроек, hex-цвета | 140 |
+| [SettingsStore.swift](../Sources/CamPrompt/SettingsStore.swift) | 26 настроек, `RecordingQuality`, hex-цвета | 210 |
 | [ScrollEngine.swift](../Sources/CamPrompt/ScrollEngine.swift) | таймер 60 Гц, смещение, луп | 70 |
 | [ScriptStore.swift](../Sources/CamPrompt/ScriptStore.swift) | библиотека скриптов в JSON | 75 |
 | [RecordingsStore.swift](../Sources/CamPrompt/RecordingsStore.swift) | список записей, Finder | 55 |
 | [CameraPreviewView.swift](../Sources/CamPrompt/CameraPreviewView.swift) | `AVCaptureVideoPreviewLayer` в SwiftUI | 50 |
 
-Вне кода: [Package.swift](../Package.swift) (SwiftPM, macOS 14, без зависимостей), [Resources/Info.plist](../Resources/Info.plist) (bundle id `ru.olya.camprompt`, тексты TCC), [Resources/icon_1024.png](../Resources/icon_1024.png), [scripts/build_app.sh](../scripts/build_app.sh), [.github/workflows/build.yml](../.github/workflows/build.yml), `refs/` (клоны MIT-референсов, в `.gitignore`).
+Objective-C: [ObjCExceptionCatcher](../Sources/ObjCExceptionCatcher/) — отдельная цель SwiftPM, одна функция `CPTryObjC`, превращает `NSException` в `NSError` (Swift такие исключения не ловит).
+
+Вне кода: [Package.swift](../Package.swift) (SwiftPM, macOS 14, две цели, без внешних зависимостей), [Resources/Info.plist](../Resources/Info.plist) (bundle id `ru.olya.camprompt`, тексты TCC), [Resources/icon_1024.png](../Resources/icon_1024.png), [scripts/build_app.sh](../scripts/build_app.sh), [.github/workflows/build.yml](../.github/workflows/build.yml), `refs/` (клоны MIT-референсов, в `.gitignore`).
 
 ---
 

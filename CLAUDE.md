@@ -58,7 +58,8 @@
 6. **Прокручиваемый `Text` — всегда с `.fixedSize(horizontal: false, vertical: true)`.** Иначе обрезается многоточием. [D-009](docs/DECISIONS.md#d-009-текст--одна-text-нода-со-сдвигом-не-scrollview)
 7. **Новая настройка** = свойство с `didSet` в `SettingsStore` + значение по умолчанию + строка в таблицу [ARCHITECTURE §8](docs/ARCHITECTURE.md#8-настройки-ключи-userdefaults) + элемент в поповер. Влияет на размер панели → `applyPanelGeometry()`; на стиль окна → `reloadPanelIfVisible()`.
 8. **Правки в `PrompterView`** помнить: у панели своя иерархия `NSHostingView`, `@EnvironmentObject` туда не долетает — зависимости передавать конструктором.
-9. Комментарии — по-английски, как в существующем коде; тексты интерфейса и документация — по-русски.
+9. **AVFoundation на macOS ≠ на iOS.** `supportedOutputSettingsKeys(for:)`, `availableVideoCodecTypes` и часть других API есть только на iOS — сборка упадёт с `is unavailable in macOS`. Настройки записи, которые Mac не примет, вызывают `NSException`, а Swift её не ловит: любой вызов `setOutputSettings` — только через `CPTryObjC` и с запасной ступенью. [D-020](docs/DECISIONS.md#d-020-качество-записи-hevc-с-потолком-битрейта-и-ступенчатый-откат)
+10. Комментарии — по-английски, как в существующем коде; тексты интерфейса и документация — по-русски.
 
 ---
 
