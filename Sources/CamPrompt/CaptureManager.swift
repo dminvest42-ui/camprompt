@@ -282,31 +282,33 @@ final class CaptureManager: NSObject, ObservableObject, @unchecked Sendable {
 
     /// Sets codec + bitrate on the video connection, trying the preferred
     /// settings first and stepping down if the Mac rejects them. Runs on
-    /// sessionQueue. macOS has no `supportedOutputSettingsKeys(for:)` (it is
-    /// iOS-only) and signals rejection with an NSException, so every attempt
-    /// goes through CPTryObjC. Returns a human label of what took effect.
+    /// sessionQueue.
+    ///
+    /// macOS offers no way to ask in advance: `supportedOutputSettingsKeys(for:)`
+    /// and `availableVideoCodecTypes` are iOS-only, and a rejected dictionary
+    /// raises an NSException. So every attempt goes through CPTryObjC.
+    /// HEVC encoding exists on every Apple Silicon Mac; the H.264 steps cover
+    /// older machines. Returns a human label of what took effect.
     private func applyOutputSettings(_ quality: RecordingQuality) -> String {
         guard let connection = movieOutput.connection(with: .video) else {
             return "по умолчанию (нет видео-соединения)"
         }
-        let codecs = movieOutput.availableVideoCodecTypes
         let dims = currentVideoInput.map { CaptureManager.dimensions(of: $0.device.activeFormat) } ?? (1920, 1080)
 
         var attempts: [(label: String, settings: [String: Any])] = []
         if let bitrate = quality.videoBitrate(width: dims.0, height: dims.1) {
-            let useHEVC = codecs.contains(.hevc)
-            let codec: AVVideoCodecType = useHEVC ? .hevc : .h264
-            let name = useHEVC ? "HEVC" : "H.264"
             let mbit = String(format: "%.1f", Double(bitrate) / 1_000_000).replacingOccurrences(of: ".", with: ",")
+            let compression: [String: Any] = [AVVideoAverageBitRateKey: NSNumber(value: bitrate)]
             attempts.append((
-                "\(name) \(mbit) Мбит/с · \(dims.0)×\(dims.1)",
-                [AVVideoCodecKey: codec,
-                 AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: NSNumber(value: bitrate)]]
+                "HEVC \(mbit) Мбит/с · \(dims.0)×\(dims.1)",
+                [AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoCompressionPropertiesKey: compression]
             ))
-            if useHEVC {
-                // HEVC alone still roughly halves the file if the bitrate is refused.
-                attempts.append(("HEVC без ограничения (Mac не принял битрейт)", [AVVideoCodecKey: AVVideoCodecType.hevc]))
-            }
+            attempts.append((
+                "H.264 \(mbit) Мбит/с · \(dims.0)×\(dims.1) (HEVC не принят)",
+                [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoCompressionPropertiesKey: compression]
+            ))
+            // HEVC alone still roughly halves the file if the bitrate is refused.
+            attempts.append(("HEVC без ограничения (Mac не принял битрейт)", [AVVideoCodecKey: AVVideoCodecType.hevc]))
         }
         attempts.append(("H.264 без ограничения", [AVVideoCodecKey: AVVideoCodecType.h264]))
 
